@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:latest
+    container_name: art-platform-db
+    env_file:
+      - .env # Load environment variables from .env file
+    ports:
+      - "${POSTGRES_PORT}:5432" # Map the port from .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
