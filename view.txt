@@ -21,7 +21,7 @@ erDiagram
     AUCTIONS ||--o{ BIDS : contains
     AUCTIONS ||--o{ BID_INCREMENTS : defines
     
-    USERS {
+ -   USERS {
         int user_id PK "Auto-increment"
         string email UK "Indexed"
         string password_hash
@@ -40,7 +40,7 @@ erDiagram
         boolean email_notifications_enabled
     }
     
-    USER_ADDRESSES {
+  -  USER_ADDRESSES {
         int address_id PK
         int user_id FK "Indexed"
         string address_type "shipping/billing"
@@ -54,7 +54,7 @@ erDiagram
         string phone_number
     }
     
-    PRODUCTS {
+ -   PRODUCTS {
         int product_id PK "Auto-increment"
         int seller_id FK "Indexed"
         string title "Indexed"
@@ -83,7 +83,7 @@ erDiagram
         string slug UK "SEO friendly URL"
     }
     
-    INVENTORY {
+  -  INVENTORY {
         int inventory_id PK
         int product_id FK "Indexed"
         int quantity
@@ -92,7 +92,7 @@ erDiagram
         datetime last_updated
     }
     
-    PRODUCT_IMAGES {
+ -   PRODUCT_IMAGES {
         int image_id PK
         int product_id FK "Indexed"
         string image_url
@@ -102,7 +102,7 @@ erDiagram
         string alt_text
     }
     
-    PRODUCT_VIEWS {
+-    PRODUCT_VIEWS {
         int view_id PK
         int product_id FK "Indexed"
         int user_id FK "Indexed, Nullable"
@@ -111,7 +111,7 @@ erDiagram
         string referrer_url
     }
     
-    CATEGORIES {
+ -   CATEGORIES {
         int category_id PK
         string name "Indexed"
         int parent_category_id FK "Self-referencing, Nullable"
@@ -122,7 +122,7 @@ erDiagram
         string slug UK "SEO friendly URL"
     }
     
-    PRODUCT_CATEGORIES {
+-    PRODUCT_CATEGORIES {
         int product_id FK "Indexed"
         int category_id FK "Indexed"
         PRIMARY KEY(product_id, category_id)

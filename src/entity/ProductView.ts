@@ -4,12 +4,12 @@ import { User } from "./Auth/User.ts";
 
 @Entity("product_views")
 export class ProductView {
-    @PrimaryGeneratedColumn()
-    view_id: number;
+    @PrimaryGeneratedColumn("uuid")
+    view_id: string;
 
     @Column()
     @Index()
-    product_id: number;
+    product_id: string;
 
     @ManyToOne(() => Product, product => product.views)
     @JoinColumn({ name: "product_id" })

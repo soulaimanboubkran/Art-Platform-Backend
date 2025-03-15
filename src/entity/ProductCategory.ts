@@ -6,7 +6,7 @@ import { Category } from "./Category.ts";
 export class ProductCategory {
     @PrimaryColumn()
     @Index()
-    product_id: number;
+    product_id: string;
 
     @PrimaryColumn()
     @Index()

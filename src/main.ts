@@ -9,7 +9,7 @@ import {
 import { AppDataSource } from "./database.ts";
 
 import authRoutes from './Routes/authRoutes.ts';
-
+import productRoutes from './Routes/productRoutes.ts';
 
 // Load environment variables
 try {
@@ -36,13 +36,14 @@ app.use(morgan("dev"));
 
 
 app.use(authRoutes);
+app.use(productRoutes);
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';
   res.status(statusCode).json({ message });
 });
 
-// Rate limiting
+// Rate limiting 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,

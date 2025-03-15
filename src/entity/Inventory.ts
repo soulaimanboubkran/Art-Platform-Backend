@@ -1,18 +1,17 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index, UpdateDateColumn } from "npm:typeorm@0.3.20";
-import { Product } from "./Product.ts";
 
 @Entity("inventory")
 export class Inventory {
-    @PrimaryGeneratedColumn()
-    inventory_id: number;
+    @PrimaryGeneratedColumn("uuid")
+    inventory_id: string;
 
     @Column()
     @Index()
-    product_id: number;
+    product_id: string;
 
-    @ManyToOne(() => Product, product => product.inventories)
+    @ManyToOne("Product", "inventories")
     @JoinColumn({ name: "product_id" })
-    product: Product;
+    product: any; // Use 'any' to avoid import
 
     @Column()
     quantity: number;

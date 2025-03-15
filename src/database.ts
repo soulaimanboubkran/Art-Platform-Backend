@@ -9,7 +9,9 @@ import { Inventory } from "./entity/Inventory.ts";
 import { ProductImage } from "./entity/ProductImage.ts";
 import { ProductView } from "./entity/ProductView.ts";
 import { ProductCategory } from "./entity/ProductCategory.ts";
-
+import { Auction } from "./entity/Auction.ts";
+import { Bid } from "./entity/Bid.ts";
+import { BidIncrement } from "./entity/BidIncrement.ts";
 const env = await load();
 
 export const AppDataSource = new DataSource({
@@ -19,8 +21,8 @@ export const AppDataSource = new DataSource({
   username: env["POSTGRES_USER"],
   password: env["POSTGRES_PASSWORD"],
   database: env["POSTGRES_DB"],
-  synchronize: true,
-  logging: false,
+  synchronize: true, // Set to false in production
+  logging: true,
   entities: [
     User,
     UserAddress,
@@ -29,8 +31,12 @@ export const AppDataSource = new DataSource({
     Inventory,
     ProductImage,
     ProductView,
-    ProductCategory
+    ProductCategory,
+    Auction,
+    Bid,
+    BidIncrement
   ],
   migrations: [],
   subscribers: [],
 });
+

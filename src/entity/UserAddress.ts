@@ -4,11 +4,11 @@ import type { User } from "./Auth/User.ts";
 @Entity("user_addresses")
 export class UserAddress {
   @PrimaryGeneratedColumn("uuid")
-  address_id: number;
+  address_id: string;
 
   @Column()
   @Index()
-  user_id: number;
+  user_id: string;
 
   @Column()
   address_type: string;
