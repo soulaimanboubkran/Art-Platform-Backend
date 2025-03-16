@@ -31,19 +31,20 @@ export class Auction {
     @Column("decimal", { precision: 10, scale: 2, nullable: true })
     reserve_price: number;
 
+    @Column("decimal", { precision: 10, scale: 2 })
+    min_bid_increment: number; // Ensure this field is defined
     @Column("decimal", { precision: 10, scale: 2, nullable: true })
     current_highest_bid: number;
 
     @Column({ nullable: true })
     @Index()
-    current_highest_bidder: number;
+    current_highest_bidder: string;
 
     @ManyToOne(() => User, { nullable: true })
     @JoinColumn({ name: "current_highest_bidder" })
     highestBidder: User;
 
-    @Column("decimal", { precision: 10, scale: 2 })
-    min_bid_increment: number;
+   
 
     @Column({ default: false })
     deposit_required: boolean;

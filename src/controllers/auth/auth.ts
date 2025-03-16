@@ -82,7 +82,7 @@ export class AuthController {
     }
   }
 
-  async verifyEmail(code: string): Promise<User | null> {
+  async verifyEmailCode(code: string): Promise<User | null> {
     try {
         // Verify the email and retrieve the user
         const user = await this.userRepo.findOne({
@@ -90,9 +90,7 @@ export class AuthController {
                 verificationToken: code,
                 verificationTokenExpiresAt: MoreThan(new Date()), // Check if the token is not expired
             },
-            select:["is_verified","user_role","verificationToken","verificationTokenExpiresAt"]
-          },
-        );
+        });
 
         if (!user) {
             return null;
@@ -103,22 +101,23 @@ export class AuthController {
         user.user_role = UserRole.USER; // Change from PENDING to USER
         user.verificationToken = null;
         user.verificationTokenExpiresAt = null;
-       
+
+        // Save the updated user
         await this.userRepo.save(user);
 
         return user;
     } catch (error) {
-        console.log("Error in verifyEmail", error);
+        console.log("Error in verifyEmailCode", error);
         throw new Error("Server error");
     }
-  }
+}
 
   async verifyEmail(req: Request, res: Response, next: NextFunction): Promise<any> {
     const { code } = req.body; 
-    
+
     try {
         // Step 1: Verify the email
-        const user = await this.verifyEmail(code);
+        const user = await this.verifyEmailCode(code);
         
         if (!user) {
             return res.status(400).json({ success: false, message: "Invalid or expired verification code" });
