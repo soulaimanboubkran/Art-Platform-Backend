@@ -10,7 +10,7 @@ import { Auction } from "../../entity/Auction.ts";
 import { Bid } from "../../entity/Bid.ts";
 import slugify from "npm:slugify@1.6.6";
 import { AppDataSource } from '../../database.ts';
-import { BidIncrement } from "../../entity/BidIncrement.ts";
+
 interface CreateProductRequest {
   title: string;
   description: string;
@@ -140,19 +140,7 @@ if (productFields.is_auction && auction) {
 
   const savedAuction = await queryRunner.manager.save(productAuction);
 
-  // Save bid increments if provided
-  if (auction.bid_increments && auction.bid_increments.length > 0) {
-    const bidIncrements = auction.bid_increments.map((increment) => {
-      const bidIncrement = new BidIncrement();
-      bidIncrement.price_from = increment.price_from;
-      bidIncrement.price_to = increment.price_to;
-      bidIncrement.increment_amount = increment.increment_amount;
-      bidIncrement.auction = savedAuction;
-      return bidIncrement;
-    });
-
-    await queryRunner.manager.save(bidIncrements);
-  }
+  
 }
   
       // Commit the transaction
@@ -162,7 +150,7 @@ if (productFields.is_auction && auction) {
       // Load the product with relationships to return
       const productWithRelations = await this.productRepository.findOne({
         where: { product_id: savedProduct.product_id },
-        relations: ['categories', 'images', 'inventories', 'auctions', 'auctions.bidIncrements']
+        relations: ['categories', 'images', 'inventories', 'auctions', ]
       });
   
       return res.status(201).json(productWithRelations);
@@ -181,4 +169,138 @@ if (productFields.is_auction && auction) {
       await queryRunner.release();
     }
   }
+
+
+  async getAllProducts(req: Request, res: Response, next: NextFunction) {
+    const { page = 1, limit = 10, search, category, minPrice, maxPrice } = req.query;
+
+    try {
+        const skip = (Number(page) - 1) * Number(limit); // Calculate skip value
+        const take = Number(limit); // Number of records per page
+
+        // Define the base query
+        const where: FindOptionsWhere<Product> = {};
+
+        // Add filters if provided
+        if (search) {
+            where.title = Like(`%${search}%`); // Search by title
+        }
+        if (category) {
+            where.categories = { category_id: In([category]) }; // Filter by category
+        }
+        if (minPrice) {
+            where.base_price = MoreThanOrEqual(Number(minPrice)); // Filter by minimum price
+        }
+        if (maxPrice) {
+            where.base_price = LessThanOrEqual(Number(maxPrice)); // Filter by maximum price
+        }
+
+        const [products, total] = await this.productRepository.findAndCount({
+            where,
+            skip,
+            take,
+            relations: ["categories", "images"],
+        });
+
+        if (products.length === 0) {
+            return res.status(404).json({ message: "No products found" });
+        }
+
+        return res.status(200).json({
+            products,
+            total,
+            page: Number(page),
+            limit: Number(limit),
+            totalPages: Math.ceil(total / Number(limit)),
+        });
+    } catch (error) {
+        console.error("Error fetching all products:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+async getProductById(req: Request, res: Response, next: NextFunction) {
+  const { product_id } = req.params;
+  const { include } = req.query; // Optional: include relations (e.g., "categories,images")
+
+  try {
+      const relations = include ? include.split(",") : []; // Parse relations to include
+
+      const product = await this.productRepository.findOne({
+          where: { product_id },
+          relations, // Load specified relations
+      });
+
+      if (!product) {
+          return res.status(404).json({ message: "Product not found" });
+      }
+
+      return res.status(200).json({ product });
+  } catch (error) {
+      console.error("Error fetching product by ID:", error);
+      return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+async getProductsBySellerId(req: Request, res: Response, next: NextFunction) {
+  const { seller_id } = req.params;
+  const { page = 1, limit = 10 } = req.query;
+
+  try {
+      const skip = (Number(page) - 1) * Number(limit); // Calculate skip value
+      const take = Number(limit); // Number of records per page
+
+      const [products, total] = await this.productRepository.findAndCount({
+          where: { seller_id },
+          skip,
+          take,
+      });
+
+      if (products.length === 0) {
+          return res.status(404).json({ message: "No products found for this seller" });
+      }
+
+      return res.status(200).json({
+          products,
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit)),
+      });
+  } catch (error) {
+      console.error("Error fetching products by seller ID:", error);
+      return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+async getProductsByCategory(req: Request, res: Response, next: NextFunction) {
+  const { category_id } = req.params;
+  const { page = 1, limit = 10 } = req.query;
+
+  try {
+      const skip = (Number(page) - 1) * Number(limit); // Calculate skip value
+      const take = Number(limit); // Number of records per page
+
+      const [products, total] = await this.productRepository.findAndCount({
+          where: { categories: { category_id } },
+          skip,
+          take,
+      });
+
+      if (products.length === 0) {
+          return res.status(404).json({ message: "No products found for this category" });
+      }
+
+      return res.status(200).json({
+          products,
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit)),
+      });
+  } catch (error) {
+      console.error("Error fetching products by category:", error);
+      return res.status(500).json({ message: "Internal server error" });
+  }
+}
 }

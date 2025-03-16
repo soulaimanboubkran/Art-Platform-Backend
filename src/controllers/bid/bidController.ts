@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'npm:express';
-import { DataSource, Repository, Like, FindOptionsWhere, In,Not } from "npm:typeorm@0.3.20";
+import { DataSource, Repository, Like, FindOptionsWhere, In, Not } from "npm:typeorm@0.3.20";
 import { Product } from "../../entity/Product.ts";
 import { Auction } from "../../entity/Auction.ts";
 import { Bid } from "../../entity/Bid.ts";
@@ -60,6 +60,7 @@ export class BidController {
                 return res.status(404).json({ message: "Auction not found" });
             }
             
+            // Check if the auction has ended
             if (auction.end_time < new Date()) {
                 return res.status(400).json({ message: "Auction has ended" });
             }
@@ -190,7 +191,10 @@ export class BidController {
                 bid_amount: numericAmount // Return exact amount back to client
             });
             
-           
+            // Notify the user if they reached their max auto-bid amount
+            if (is_auto_bid && numericAmount >= numericMaxAmount) {
+                this.notifyUser(userId, "You have reached your maximum auto-bid amount.");
+            }
             
         } catch (error) {
             console.error("Error in createBid:", error);
@@ -206,74 +210,196 @@ export class BidController {
             await queryRunner.release();
         }
     }
-async checkBidStatus(req: Request, res: Response, next: NextFunction) {
-    try {
-        const userId = (req as any).user?.userId;
-        if (!userId) {
-            return res.status(401).json({ message: "Authentication required" });
-        }
-        
-        const { bid_id } = req.params;
-        
-        const bid = await this.bidRepository.findOne({
-            where: { bid_id, user_id: userId }
-        });
-        
-        if (!bid) {
-            return res.status(404).json({ message: "Bid not found" });
-        }
-        
-        // Get highest bid for product
-        const highestBid = await this.bidRepository.findOne({
-            where: { product_id: bid.product_id, is_winning: true }
-        });
-        
-        const isWinning = highestBid?.bid_id === bid.bid_id;
-        
-        res.status(200).json({
-            bid_id: bid.bid_id,
-            product_id: bid.product_id,
-            amount: bid.amount,
-            is_auto_bid: bid.is_auto_bid,
-            max_auto_bid_amount: bid.max_auto_bid_amount,
-            is_winning: isWinning,
-            bid_time: bid.bid_time,
-            highest_bid: highestBid ? highestBid.amount : null,
-            highest_bidder_id: highestBid ? highestBid.user_id : null
-        });
-    } catch (error) {
-        console.error(error);
-        next(error);
-    }
-}
 
-// Method for background job to process all pending auto-bids 
-async processAllPendingAutoBids() {
-    try {
-        // Get all products with active auctions that may need auto-bid processing
-        const activeAuctions = await this.productAuctionRepository.find({
-            where: { end_time: { $gt: new Date() } }
-        });
-        
-        let processedCount = 0;
-        
-        for (const auction of activeAuctions) {
-            // Get products in this auction
-            const products = await this.productRepository.find({
-                where: { auction_id: auction.auction_id, is_auction: true }
-            });
-            
-            for (const product of products) {
-                // Process auto-bids for this product
-                await this.processAutoBids(product.product_id, auction.auction_id);
-                processedCount++;
+    async checkBidStatus(req: Request, res: Response, next: NextFunction) {
+        try {
+            const userId = (req as any).user?.userId;
+            if (!userId) {
+                return res.status(401).json({ message: "Authentication required" });
             }
+
+            const { bid_id } = req.params;
+
+            const bid = await this.bidRepository.findOne({
+                where: { bid_id, user_id: userId }
+            });
+
+            if (!bid) {
+                return res.status(404).json({ message: "Bid not found" });
+            }
+
+            // Get highest bid for product
+            const highestBid = await this.bidRepository.findOne({
+                where: { product_id: bid.product_id, is_winning: true }
+            });
+
+            const isWinning = highestBid?.bid_id === bid.bid_id;
+
+            res.status(200).json({
+                bid_id: bid.bid_id,
+                product_id: bid.product_id,
+                amount: bid.amount,
+                is_auto_bid: bid.is_auto_bid,
+                max_auto_bid_amount: bid.max_auto_bid_amount,
+                is_winning: isWinning,
+                bid_time: bid.bid_time,
+                highest_bid: highestBid ? highestBid.amount : null,
+                highest_bidder_id: highestBid ? highestBid.user_id : null
+            });
+        } catch (error) {
+            console.error(error);
+            next(error);
         }
-        
-        return { processedCount };
-    } catch (error) {
-        console.error("Error processing pending auto-bids:", error);
-        throw error;
     }
-}
+
+    async declareWinner(auction_id: string) {
+        const auction = await this.productAuctionRepository.findOne({ where: { auction_id } });
+
+        if (!auction) {
+            throw new Error("Auction not found");
+        }
+
+        const highestBid = await this.bidRepository.findOne({
+            where: { auction_id, is_winning: true },
+            order: { amount: "DESC" }
+        });
+
+        if (highestBid) {
+            auction.winner_id = highestBid.user_id;
+            auction.is_closed = true;
+            await this.productAuctionRepository.save(auction);
+
+            // Notify the winner and seller
+            this.notifyWinner(highestBid.user_id, auction_id);
+            this.notifySeller(auction.seller_id, auction_id);
+        } else {
+            auction.winner_id = null; // No winner
+            auction.is_closed = true;
+            await this.productAuctionRepository.save(auction);
+        }
+    }
+
+    // Method for background job to process all pending auto-bids 
+    async processAllPendingAutoBids() {
+        try {
+            // Get all products with active auctions that may need auto-bid processing
+            const activeAuctions = await this.productAuctionRepository.find({
+                where: { end_time: { $gt: new Date() } }
+            });
+
+            let processedCount = 0;
+
+            for (const auction of activeAuctions) {
+                // Get products in this auction
+                const products = await this.productRepository.find({
+                    where: { auction_id: auction.auction_id, is_auction: true }
+                });
+
+                for (const product of products) {
+                    // Process auto-bids for this product
+                    await this.processAutoBids(product.product_id, auction.auction_id);
+                    processedCount++;
+                }
+            }
+
+            return { processedCount };
+        } catch (error) {
+            console.error("Error processing pending auto-bids:", error);
+            throw error;
+        }
+    }
+
+    async getBidsByUserId(req: Request, res: Response, next: NextFunction) {
+        const { user_id } = req.params;
+        const { page = 1, limit = 10, active } = req.query; // Default: page 1, limit 10
+
+        try {
+            const skip = (Number(page) - 1) * Number(limit); // Calculate skip value
+            const take = Number(limit); // Number of records per page
+
+            // Define the base query
+            const where: any = { user_id };
+
+            // If "active" is true, filter for active bids (where is_winning is true)
+            if (active === "true") {
+                where.is_winning = true;
+                where.is_auto_bid = true; 
+            }
+
+            const [bids, total] = await this.bidRepository.findAndCount({
+                where,
+                skip,
+                take,
+            });
+
+            if (bids.length === 0) {
+                return res.status(404).json({ message: "No bids found for this user" });
+            }
+
+            return res.status(200).json({
+                bids,
+                total,
+                page: Number(page),
+                limit: Number(limit),
+                totalPages: Math.ceil(total / Number(limit)),
+            });
+        } catch (error) {
+            console.error("Error fetching bids by user ID:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+
+    async getBidsByProductId(req: Request, res: Response, next: NextFunction) {
+        const { product_id } = req.params;
+        const { page = 1, limit = 10 } = req.query; // Default: page 1, limit 10
+    
+        try {
+            const skip = (Number(page) - 1) * Number(limit); // Calculate skip value
+            const take = Number(limit); // Number of records per page
+    
+            const [bids, total] = await this.bidRepository.findAndCount({
+                where: { product_id },
+                skip,
+                take,
+            });
+    
+            if (bids.length === 0) {
+                return res.status(404).json({ message: "No bids found for this product" });
+            }
+    
+            return res.status(200).json({
+                bids,
+                total,
+                page: Number(page),
+                limit: Number(limit),
+                totalPages: Math.ceil(total / Number(limit)),
+            });
+        } catch (error) {
+            console.error("Error fetching bids by product ID:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
+    // Get a single bid with relations (auction, product, user)
+    async getBidWithRelations(req: Request, res: Response, next: NextFunction) {
+        const { bid_id } = req.params;
+    
+        try {
+            const bid = await this.bidRepository.findOne({
+                where: { bid_id },
+                relations: ["auction", "product", "user"], // Load relations here
+                select: ["auction", "product", "user"], // Select only the relations
+            });
+    
+            if (!bid) {
+                return res.status(404).json({ message: "Bid not found" });
+            }
+    
+            // Extract and return only the relations
+            const { auction, product, user } = bid;
+            return res.status(200).json({ auction, product, user });
+        } catch (error) {
+            console.error("Error fetching bid relations:", error);
+            return res.status(500).json({ message: "Internal server error" });
+        }
+    }
 }

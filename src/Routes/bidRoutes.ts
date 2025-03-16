@@ -35,5 +35,19 @@ router.post(
     validateRequest,
     (req, res, next) => bidController.createBid(req, res, next)
 );
-
+router.get('/bids/user/:user_id',
+    AuthMiddleware.verifyToken,
+    AuthMiddleware.authorizeRole(UserRole.SELLER, UserRole.ADMIN, UserRole.USER),
+    (req, res, next) => bidController.getBidsByUserId(req, res, next)
+)
+router.get('/bids/product/:product_id',
+    AuthMiddleware.verifyToken,
+    AuthMiddleware.authorizeRole(UserRole.SELLER, UserRole.ADMIN, UserRole.USER),
+    (req, res, next) => bidController.getBidsByProductId(req, res, next)
+)
+router.get('/bids/:bid_id/relations',
+    AuthMiddleware.verifyToken,
+    AuthMiddleware.authorizeRole(UserRole.SELLER, UserRole.ADMIN, UserRole.USER),
+    (req, res, next) => bidController.getBidWithRelations(req, res, next)
+)
 export default router;

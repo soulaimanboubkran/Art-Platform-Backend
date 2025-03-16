@@ -11,7 +11,7 @@ import { ProductView } from "./entity/ProductView.ts";
 import { ProductCategory } from "./entity/ProductCategory.ts";
 import { Auction } from "./entity/Auction.ts";
 import { Bid } from "./entity/Bid.ts";
-import { BidIncrement } from "./entity/BidIncrement.ts";
+
 const env = await load();
 
 export const AppDataSource = new DataSource({
@@ -33,8 +33,7 @@ export const AppDataSource = new DataSource({
     ProductView,
     ProductCategory,
     Auction,
-    Bid,
-    BidIncrement
+    Bid
   ],
   migrations: [],
   subscribers: [],

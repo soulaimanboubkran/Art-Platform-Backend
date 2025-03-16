@@ -1,7 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index , OneToMany} from "npm:typeorm@0.3.20";
 import { Product } from "./Product.ts";
 import { User } from "./Auth/User.ts";
-import { BidIncrement } from "./BidIncrement.ts";
 
 @Entity("auctions")
 export class Auction {
@@ -67,6 +66,10 @@ export class Auction {
     @Column({ default: false })
     reserve_met: boolean;
 
-    @OneToMany(() => BidIncrement, (bidIncrement) => bidIncrement.auction)
-    bidIncrements: BidIncrement[];
+  
+
+    closeAuction() {
+        this.end_time = new Date(); // Set end time to the current time
+        this.is_active = false; // Optionally mark the auction as inactive
+    }
 }
