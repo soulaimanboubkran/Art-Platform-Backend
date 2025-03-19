@@ -12,6 +12,7 @@ import authRoutes from './Routes/authRoutes.ts';
 import productRoutes from './Routes/productRoutes.ts';
 import bidRoutes from './Routes/bidRoutes.ts';
 import auctionRoutes from './Routes/auctionRoutes.ts';
+import orderRoutes from './Routes/orderRoutes.ts';
 // Load environment variables
 try {
   const env = await load();
@@ -40,6 +41,7 @@ app.use(authRoutes);
 app.use(productRoutes);
 app.use(bidRoutes);
 app.use(auctionRoutes);
+app.use(orderRoutes);
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Internal Server Error';

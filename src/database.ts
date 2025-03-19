@@ -11,7 +11,11 @@ import { ProductView } from "./entity/ProductView.ts";
 import { ProductCategory } from "./entity/ProductCategory.ts";
 import { Auction } from "./entity/Auction.ts";
 import { Bid } from "./entity/Bid.ts";
-
+import { Order } from "./entity/Order.ts";
+import { OrderItem } from "./entity/OrderItem.ts";
+import { OrderStatusHistory } from "./entity/OrderStatusHistory.ts";
+import { Payment } from "./entity/Payment.ts";
+import { PaymentMethod } from "./entity/PaymentMethod.ts";
 const env = await load();
 
 export const AppDataSource = new DataSource({
@@ -33,7 +37,12 @@ export const AppDataSource = new DataSource({
     ProductView,
     ProductCategory,
     Auction,
-    Bid
+    Bid,
+    Order,
+    OrderItem,
+    OrderStatusHistory,
+    Payment,
+    PaymentMethod
   ],
   migrations: [],
   subscribers: [],
