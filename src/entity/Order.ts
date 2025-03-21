@@ -32,10 +32,10 @@ export class Order {
   updated_at: Date;
 
   @Column()
-  shipping_address_id: number;
+  shipping_address_id: string;
 
   @Column()
-  billing_address_id: number;
+  billing_address_id: string;
 
   @Column("decimal", { precision: 10, scale: 2 })
   shipping_cost: number;

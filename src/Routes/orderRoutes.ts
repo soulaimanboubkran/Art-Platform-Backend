@@ -1,29 +1,29 @@
 import { Router } from 'npm:express';
-import { body, checkSchema } from 'npm:express-validator';
+import { body, checkSchema, param } from 'npm:express-validator';
 import { UserRole } from "../entity/Auth/User.ts";
 import { OrderController } from '../controllers/order/orderController.ts';
 import { checkForUnexpectedFields, validateRequest } from '../middleware/validationResult.ts';
 import { AuthMiddleware } from '../middleware/authMiddleware.ts';
-
+import { ProductAuthMiddleware } from '../middleware/productAuthMiddleware.ts';
+import { OrderAuthMiddleware } from '../middleware/orderAuthMiddleware.ts';
 const router = Router();
 const orderController = new OrderController();
 
+// Create Order
 router.post(
     '/orders',
     AuthMiddleware.verifyToken,
     AuthMiddleware.authorizeRole(UserRole.SELLER, UserRole.ADMIN, UserRole.USER),
     [
         // Basic order validation
-        body('user_id')
-            .isUUID().withMessage('Invalid user_id format')
-            .notEmpty().withMessage('user_id is required'),
+       
         
         body('shipping_address_id')
-        .isUUID().withMessage('shipping_address_id must be a string')
+            .isUUID().withMessage('shipping_address_id must be a string')
             .notEmpty().withMessage('shipping_address_id is required'),
         
         body('billing_address_id')
-        .isUUID().withMessage('billing_address_id must be a string')
+            .isUUID().withMessage('billing_address_id must be a string')
             .notEmpty().withMessage('billing_address_id is required'),
         
         body('currency')
@@ -59,24 +59,27 @@ router.post(
         body('items.*.quantity')
             .isInt({ min: 1 }).withMessage('quantity must be a positive integer')
             .notEmpty().withMessage('quantity is required for each item'),
-        
         body('items.*.is_auction_win')
             .isBoolean().withMessage('is_auction_win must be a boolean value')
             .notEmpty().withMessage('is_auction_win is required for each item'),
-        
         // Conditional validation for auction wins
         body('items.*.bid_id')
-            .optional()
-            .isUUID().withMessage('bid_id must be a string')
-            .custom((bidId, { req, path }) => {
-                const index = parseInt(path.split('.')[1]);
+        .custom((bidId, { req, path }) => {
+            const pathParts = path.split('.');
+            const index = parseInt(pathParts[1]);
+            
+            // Safely check if items array and index exist
+            if (req.body.items && req.body.items[index]) {
                 const isAuctionWin = req.body.items[index].is_auction_win;
                 
                 if (isAuctionWin && !bidId) {
                     throw new Error('bid_id is required when is_auction_win is true');
                 }
-                return true;
-            }),
+            }
+            return true;
+        })
+        .optional({ nullable: false })
+        .isUUID().withMessage('bid_id must be a valid UUID'),
     ],
     checkForUnexpectedFields([
         'user_id', 
@@ -93,6 +96,107 @@ router.post(
     ]),
     validateRequest,
     (req, res, next) => orderController.createOrder(req, res, next)
+);
+
+// Update Order
+router.patch(
+    '/orders/:orderId',
+    AuthMiddleware.verifyToken,
+    AuthMiddleware.authorizeRole(UserRole.USER, UserRole.SELLER, UserRole.ADMIN),
+    [
+        param('orderId')
+        .isUUID().withMessage('orderId must be an integer')
+            .notEmpty().withMessage('orderId is required'),
+        
+        body('shipping_address_id')
+            .optional()
+            .isUUID().withMessage('shipping_address_id must be a valid UUID'),
+            
+        body('billing_address_id')
+            .optional()
+            .isUUID().withMessage('billing_address_id must be a valid UUID'),
+            
+        body('notes')
+            .optional()
+            .isString().withMessage('notes must be a string')
+            .isLength({ max: 1000 }).withMessage('notes cannot exceed 1000 characters'),
+            
+       
+    ],
+    checkForUnexpectedFields([
+        'shipping_address_id', 
+        'billing_address_id', 
+        'notes'
+    ]),
+    validateRequest,
+    (req, res, next) => orderController.updateOrder(req, res, next)
+);
+
+// Request Order Cancellation (User)
+router.patch(
+    '/orders/:orderId/cancel',
+    AuthMiddleware.verifyToken,
+    AuthMiddleware.authorizeRole(UserRole.USER),
+    [
+        param('orderId')
+            .isUUID().withMessage('orderId must be an integer')
+            .notEmpty().withMessage('orderId is required'),
+            
+        body('reason')
+            .optional()
+            .isString().withMessage('reason must be a string')
+            .isLength({ max: 500 }).withMessage('reason cannot exceed 500 characters'),
+    ],
+    checkForUnexpectedFields(['reason']),
+    validateRequest,
+    (req, res, next) => orderController.requestCancelOrder(req, res, next)
+);
+
+// Process Cancellation Request (Seller/Admin)
+router.patch(
+    '/admin/orders/:orderId/cancellation',
+    AuthMiddleware.verifyToken,
+    OrderAuthMiddleware.isOrderSeller,
+ 
+    [
+        param('orderId')
+            .isUUID().withMessage('orderId must be an integer')
+            .notEmpty().withMessage('orderId is required'),
+            
+        body('approved')
+            .isBoolean().withMessage('approved must be a boolean value')
+            .notEmpty().withMessage('approved is required'),
+            
+        body('notes')
+            .optional()
+            .isString().withMessage('notes must be a string')
+            .isLength({ max: 500 }).withMessage('notes cannot exceed 500 characters'),
+    ],
+    checkForUnexpectedFields(['approved', 'notes']),
+    validateRequest,
+    (req, res, next) => orderController.processCancellationRequest(req, res, next)
+);
+
+// Get All Orders (with pagination and filtering)
+router.get(
+    '/orders',
+    AuthMiddleware.verifyToken,
+    AuthMiddleware.authorizeRole(UserRole.USER, UserRole.SELLER, UserRole.ADMIN),
+    (req, res, next) => orderController.getOrders(req, res, next)
+);
+
+// Get Single Order Details
+router.get(
+    '/orders/:orderId',
+    AuthMiddleware.verifyToken,
+    AuthMiddleware.authorizeRole(UserRole.USER, UserRole.SELLER, UserRole.ADMIN),
+    [
+        param('orderId')
+             .isUUID().withMessage('orderId must be an integer')
+            .notEmpty().withMessage('orderId is required'),
+    ],
+    validateRequest,
+    (req, res, next) => orderController.getOrderById(req, res, next)
 );
 
 export default router;
